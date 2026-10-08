@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<title>PT実技試験ランダム練習</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;background:#f5f7fb;color:#172033}
+  .wrap{max-width:720px;margin:0 auto;padding:24px 16px 40px}
+  h1{font-size:26px;margin:0 0 6px}
+  .sub{color:#667085;font-size:14px;margin-bottom:20px}
+  .modes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+  button{font:inherit;cursor:pointer}
+  .mode{min-height:54px;border:1px solid #d0d5dd;border-radius:12px;background:white;font-weight:700}
+  .mode.active{background:#e8f0ff;border-color:#2563eb;color:#174ea6}
+  .card{background:white;border:1px solid #dfe3ea;border-radius:18px;padding:22px;box-shadow:0 2px 8px rgba(16,24,40,.05)}
+  .status{display:flex;justify-content:space-between;gap:10px;color:#667085;font-size:14px;margin-bottom:14px}
+  .question{min-height:190px;display:flex;align-items:center;justify-content:center;text-align:center;border-radius:14px;background:#f8fafc;padding:20px}
+  .category{font-size:14px;color:#667085;margin-bottom:10px}
+  .answer{font-size:30px;font-weight:800;line-height:1.35;overflow-wrap:anywhere}
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .primary,.secondary{min-height:54px;border-radius:12px;font-weight:800}
+  .primary{border:0;background:#2563eb;color:white}
+  .secondary{border:1px solid #d0d5dd;background:white;color:#172033}
+  .primary:disabled{opacity:.45;cursor:not-allowed}
+  .list{margin-top:18px}
+  .list summary{cursor:pointer;font-weight:700;color:#344054}
+  .list ul{margin:12px 0 0;padding-left:24px;color:#667085;line-height:1.8}
+  .done{font-weight:800;color:#2563eb}
+  @media(max-width:480px){
+    .wrap{padding:20px 12px 32px}
+    h1{font-size:23px}
+    .modes{grid-template-columns:1fr}
+    .answer{font-size:26px}
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>PT実技試験ランダム練習</h1>
+  <div class="sub">ROM・MMTの試験項目をランダムに練習できます</div>
+
+  <div class="modes" role="tablist" aria-label="出題モード">
+    <button class="mode active" data-mode="ROM" type="button">ROM</button>
+    <button class="mode" data-mode="MMT" type="button">MMT</button>
+    <button class="mode" data-mode="ALL" type="button">ROM＋MMT</button>
+  </div>
+
+  <section class="card" aria-live="polite">
+    <div class="status">
+      <span id="modeLabel">ROM</span>
+      <span id="progress">0 / 28</span>
+    </div>
+    <div class="question">
+      <div>
+        <div class="category" id="category">スタートを押してください</div>
+        <div class="answer" id="answer">準備OK</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="next" type="button">出題する</button>
+      <button class="secondary" id="reset" type="button">最初から</button>
+    </div>
+  </section>
+
+  <details class="list">
+    <summary>登録項目を確認する</summary>
+    <div id="itemList"></div>
+  </details>
+</main>
+
+<script>
+const ITEMS = {
+  ROM: [
+    "肩関節屈曲","肩関節伸展","肩関節外転","肩関節内旋","肩関節外旋(1st)","肩関節外旋(2nd)","肩関節水平内転","肩関節水平外転",
+    "肘関節屈曲","肘関節伸展",
+    "前腕回内","前腕回外",
+    "手関節掌屈","手関節背屈","手関節橈屈","手関節尺屈",
+    "股関節屈曲","股関節伸展","股関節外転","股関節内転","股関節内旋","股関節外旋",
+    "膝関節屈曲","膝関節伸展",
+    "足関節背屈","足関節底屈","足関節内がえし","足関節外がえし"
+  ],
+  MMT: [
+    "肩関節屈曲","肩関節伸展","肩関節外転","肩関節水平内転","肩関節水平外転","肩関節内旋","肩関節外旋",
+    "肘関節屈曲(回外)","肘関節屈曲(回内)","肘関節屈曲(中間)","肘関節伸展",
+    "前腕回内","前腕回外",
+    "手関節掌屈","手関節背屈",
+    "股関節屈曲","股関節伸展",
+    "膝関節屈曲","膝関節伸展",
+    "足関節背屈と内がえし","足関節内がえし","足関節底屈","足関節底屈を伴う外がえし"
+  ]
+};
+
+let mode = "ROM";
+let remaining = [];
+let count = 0;
+
+const modeLabel = document.getElementById("modeLabel");
+const progress = document.getElementById("progress");
+const category = document.getElementById("category");
+const answer = document.getElementById("answer");
+const next = document.getElementById("next");
+const reset = document.getElementById("reset");
+const list = document.getElementById("itemList");
+
+function pool(){
+  if(mode === "ALL"){
+    return [
+      ...ITEMS.ROM.map(x => ({type:"ROM", name:x})),
+      ...ITEMS.MMT.map(x => ({type:"MMT", name:x}))
+    ];
+  }
+  return ITEMS[mode].map(x => ({type:mode, name:x}));
+}
+
+function shuffle(array){
+  const a = [...array];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function resetRound(){
+  remaining = shuffle(pool());
+  count = 0;
+  answer.textContent = "準備OK";
+  category.textContent = "「出題する」を押してください";
+  progress.textContent = `0 / ${pool().length}`;
+  next.textContent = "出題する";
+  next.disabled = false;
+}
+
+function draw(){
+  if(remaining.length === 0){
+    answer.textContent = "1周完了！";
+    category.textContent = "お疲れさまでした";
+    progress.innerHTML = `<span class="done">${count} / ${count}</span>`;
+    next.textContent = "もう1周する";
+    return;
+  }
+  const item = remaining.pop();
+  count++;
+  answer.textContent = item.name;
+  category.textContent = item.type === "ROM" ? "ROM" : "MMT";
+  progress.textContent = `${count} / ${pool().length}`;
+  next.textContent = remaining.length ? "次の問題" : "最後の問題";
+}
+
+function renderList(){
+  const title = mode === "ALL" ? "ROM＋MMT（51項目）" : `${mode}（${ITEMS[mode].length}項目）`;
+  const ul = document.createElement("ul");
+  pool().forEach(item=>{
+    const li=document.createElement("li");
+    li.textContent = mode==="ALL" ? `${item.type}：${item.name}` : item.name;
+    ul.appendChild(li);
+  });
+  list.innerHTML = `<strong>${title}</strong>`;
+  list.appendChild(ul);
+}
+
+document.querySelectorAll(".mode").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    mode=btn.dataset.mode;
+    document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("active",b===btn));
+    modeLabel.textContent = mode==="ALL" ? "ROM＋MMT" : mode;
+    renderList();
+    resetRound();
+  });
+});
+
+next.addEventListener("click",()=>{
+  if(remaining.length===0) resetRound();
+  draw();
+});
+reset.addEventListener("click",resetRound);
+
+renderList();
+resetRound();
+</script>
+</body>
+</html>
